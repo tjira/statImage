@@ -1,3 +1,4 @@
+import json
 import cv2
 import numpy
 import os
@@ -73,8 +74,8 @@ class Image:
 		self.save("_binaryEdited")
 		a = self.area()
 		l = self.length()
-		chi = [components, holes]
-		chars = [a, l, chi]
+		chars = [a, l, [components, holes]]
+		self.saveStats(chars, kwargs)
 		return chars
 
 	def save(self, appendix):
@@ -83,6 +84,22 @@ class Image:
 		path = os.sep.join(path)
 		self.filenames.append(path)
 		cv2.imwrite(path, self.matrix)
+
+	def saveStats(self, chars, kwargs):
+		path = os.path.abspath(self.filename).split(os.sep)
+		path[-1] = "stats.json"
+		jsonDict = {
+			"Characteristics": chars,
+			"Size": self.matrix.shape,
+			"Threshold": kwargs["threshold"],
+			"MorphKernel": kwargs["kernel"],
+			"MorphSeq": kwargs["seq"],
+			"minCompSize": kwargs["minCompSize"],
+			"minHoleSize": kwargs["minHoleSize"],
+			"maxHoleSize": kwargs["maxHoleSize"]
+			}
+		with open(os.sep.join(path), "w") as stats:
+			stats.write(json.dumps(jsonDict, sort_keys=True, indent=4))
 
 	def display(self):
 		cv2.namedWindow("Image", cv2.WINDOW_NORMAL | 16)
