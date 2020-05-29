@@ -1,8 +1,8 @@
 {
     "MorphKernel": "(2, 2)",
-    "MorphSeq": "(-30, 30)",
-    "Threshold": 254,
-    "maxHoleSize": 10000,
-    "minCompSize": 35000,
-    "minHoleSize": 100
+    "MorphSeq": "(0, 0)",
+    "Threshold": 100,
+    "maxHoleSize": 1000,
+    "minCompSize": 10,
+    "minHoleSize": 5
 }

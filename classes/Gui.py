@@ -71,7 +71,7 @@ class Gui:
 		Entry(self.convertTab, textvariable=self.convertInput).pack(fill=X)
 		self.convertILabel = Label(self.convertTab, width=50)
 		self.convertILabel.pack()
-		Button(self.convertTabOptions, text="Load", command=lambda: Thread(target=self.display, args=(self.convertILabel, ), kwargs={"filename": self.convertInput.get()}).start()).pack(fill=X)
+		Button(self.convertTabOptions, text="Load", command=lambda: Thread(target=self.convertLoad).start()).pack(fill=X)
 		self.thresholdEntry = Entry(self.convertTabOptions, textvariable=self.convertThresh)
 		self.thresholdEntry.pack(fill=X)
 		Tooltip.register(self.thresholdEntry, "Threshold")
@@ -156,6 +156,7 @@ class Gui:
 		self.estimateCharWin.column("Value", width=50)
 		self.estimateCharWin.pack(fill=X)
 		Button(self.estimateTabOptions, text="Estimate", command=lambda: Thread(target=self.estimate).start()).pack(fill=X)
+		Button(self.estimateTabOptions, text="Copy Parameters", command=lambda: Thread(target=self.copyParameters).start()).pack(fill=X)
 		Button(self.estimateTabOptions, text="Stop", command=lambda: Thread(target=self.stop).start()).pack(fill=X)
 		self.estimateCanvas = Canvas(self.estimateTabOptions, bg="blue", width=100, height=50)
 		self.estimateCanvas.pack(fill=X, side=BOTTOM)
@@ -171,7 +172,7 @@ class Gui:
 
 	def variables(self):
 		self.updateFreq = IntVar(value=60)
-		self.convertInput = StringVar(value=os.path.join("example", "image.jpg"))
+		self.convertInput = StringVar(value=os.path.join("example", "image.png"))
 		self.convertThresh = IntVar(value=self.convertDefault["Threshold"])
 		self.convertMorphSeq = StringVar(value=self.convertDefault["MorphSeq"])
 		self.convertMorphKernel = StringVar(value=self.convertDefault["MorphKernel"])
@@ -187,16 +188,15 @@ class Gui:
 		self.simulateIters = IntVar(value=self.simulateDefault["Iterations"])
 		self.chainFolder = StringVar(value="chain")
 		self.massSimulCount = IntVar(value=100)
-
-		self.estimateImageInput = StringVar(value=os.path.join("mle", "image.png"))
-		self.estimateFolderInput = StringVar(value=os.path.join("mle", "chain"))
-
+		self.estimateImageInput = StringVar(value=os.path.join("example", "image_binaryEdited.png"))
+		self.estimateFolderInput = StringVar(value=os.path.join("example", "chain"))
 		self.notebook.bind("<<NotebookTabChanged>>", self.notebookResize)
 		self.loadSettings()
 
 	def convert(self):
 		self.running = True
 		Thread(target=self.loading, args=(self.convertCanvas, )).start()
+
 		image = Image(filename=self.convertInput.get())
 		chars = image.computeChars(threshold=self.convertThresh.get(), kernel=eval(self.convertMorphKernel.get()), seq=eval(self.convertMorphSeq.get()), minCompSize=self.convertMinCompSize.get(), maxHoleSize=self.convertMaxHoleSize.get(), minHoleSize=self.convertMinHoleSize.get())
 		self.display(self.convertILabel, filename=image.filenames[2])
@@ -270,8 +270,8 @@ class Gui:
 		label.configure(image=image)
 		label.image = image
 		self.running = False
-		self.loadSettings()
 		self.notebookResize()
+
 
 	def displayChars(self, chars, tree):
 		for i in tree.get_children():
@@ -326,6 +326,10 @@ class Gui:
 			self.massSimulCount.set(jsonDict["massSimulCount"])
 			self.updateFreq.set(jsonDict["updateFreq"])
 
+	def convertLoad(self):
+		self.display(self.convertILabel, filename=self.convertInput.get())
+		self.loadSettings()
+
 	def estimateLoad(self):
 		with open(os.path.join(*self.estimateFolderInput.get().split(os.sep), "characteristics.json"), "r") as chars:
 			chain = json.loads(chars.read())
@@ -351,6 +355,14 @@ class Gui:
 		self.notebook.update_idletasks()
 		tab = self.notebook.nametowidget(self.notebook.select())
 		self.notebook.configure(height=tab.winfo_reqheight(), width=tab.winfo_reqwidth())
+
+	def copyParameters(self):
+		params = list()
+		for child in self.estimateCharWin.get_children():
+			params.append(float(self.estimateCharWin.item(child)["values"][0]))
+		self.lambda1.set(params[0])
+		self.lambda2.set(params[1])
+		self.lambda3.set(params[2])
 
 	def stop(self):
 		self.stopFlag = True
