@@ -1,4 +1,5 @@
 {
     "chainFolder": "chain",
-    "massSimulCount": 10
+    "massSimulCount": 10,
+    "updateFreq": 60
 }

@@ -138,8 +138,8 @@ class Gui:
 		self.simulateCharWin.column("#0", width=50)
 		self.simulateCharWin.column("Value", width=50)
 		self.simulateCharWin.pack(fill=X)
-		self.simulateCanvas = Canvas(self.simulateTabOptions, bg="blue", width=100, height=50)
-		self.simulateCanvas.pack(fill=X, side=BOTTOM)
+		self.simulateProgress = Progressbar(self.simulateTabOptions, orient=HORIZONTAL, length=100, mode="determinate")
+		self.simulateProgress.pack(fill=X, side=BOTTOM)
 
 	def estimateTabLayout(self):
 		self.estimateTab = Frame(self.notebook)
@@ -150,7 +150,7 @@ class Gui:
 		Entry(self.estimateTab, textvariable=self.estimateFolderInput).pack(fill=X)
 		Button(self.estimateTabOptions, text="Load", command=lambda: Thread(target=self.estimateLoad).start(), width=20).pack(fill=X)
 		self.estimateCharWin = Treeview(self.estimateTabOptions, columns=("Value"), height=4)
-		self.estimateCharWin.heading("#0", text="Char")
+		self.estimateCharWin.heading("#0", text="Param")
 		self.estimateCharWin.heading("Value", text="Value")
 		self.estimateCharWin.column("#0", width=50)
 		self.estimateCharWin.column("Value", width=50)
@@ -170,6 +170,7 @@ class Gui:
 		print("estim prefs")
 
 	def variables(self):
+		self.updateFreq = IntVar(value=60)
 		self.convertInput = StringVar(value=os.path.join("example", "image.jpg"))
 		self.convertThresh = IntVar(value=self.convertDefault["Threshold"])
 		self.convertMorphSeq = StringVar(value=self.convertDefault["MorphSeq"])
@@ -202,17 +203,26 @@ class Gui:
 		self.displayChars(chars, self.convertCharWin)
 		self.running = False
 
-	def simulate(self):
+	def simulate(self, mass=[False, 0], ):
 		self.running = True
 		Thread(target=self.loading, args=(self.convertCanvas, )).start()
 		params = (self.lambda1.get(), self.lambda2.get(), self.lambda3.get())
 		model = MH(size=self.simulateSize.get(), r=eval(self.rRange.get()), params=params, intensity=self.intensity.get())
+		factor = 1 if not mass[0] else self.massSimulCount.get()
+		start = time.time()
 		for i in range(self.simulateIters.get()):
+			if self.stopFlag:
+				break
 			self.simulImage, chars = model.iteration()
-			if not i%10: self.displayChars(chars, self.simulateCharWin)
-			if not i%50: self.display(self.simulateILabel, matrix=self.simulImage)
+			if time.time() - start > 1/self.updateFreq.get():
+				self.display(self.simulateILabel, matrix=self.simulImage)
+				self.displayChars(chars, self.simulateCharWin)
+				self.simulateProgress["value"] = (mass[1]*self.simulateIters.get() + i)/self.simulateIters.get()*100/factor
+				start = time.time()
 		self.displayChars(chars, self.simulateCharWin)
 		self.display(self.simulateILabel, matrix=self.simulImage)
+		if not mass[0]:
+			self.simulateProgress["value"] = 100
 		self.running = False
 		return chars
 
@@ -222,13 +232,13 @@ class Gui:
 		params = (self.lambda1.get(), self.lambda2.get(), self.lambda3.get())
 		charDict = {"params": params, "rRange": self.rRange.get(), "iters": self.simulateIters.get(), "intensity": self.intensity.get(), "size": self.simulateSize.get()}
 		for i in range(self.massSimulCount.get()):
-			if self.stopFlag:
-				self.stopFlag = False
-				break
-			chars = self.simulate()
+			chars = self.simulate(mass=[True, i])
 			charDict[str(i+1)] = chars
 			path = os.path.join(self.chainFolder.get(), "{}.png".format(i+1))
+			if self.stopFlag:
+				break
 			self.tempImage.save(path)
+		self.simulateProgress["value"] = 100
 		with open(os.path.join(self.chainFolder.get(), "characteristics.json"), "w") as characteristics:
 			characteristics.write(json.dumps(charDict, sort_keys=True, indent=4))
 
@@ -289,7 +299,8 @@ class Gui:
 			}, sort_keys=True, indent=4)
 		globalJsonDict = json.dumps({
 			"chainFolder": self.chainFolder.get(),
-			"massSimulCount": self.massSimulCount.get()
+			"massSimulCount": self.massSimulCount.get(),
+			"updateFreq": self.updateFreq.get()
 			}, sort_keys=True, indent=4)
 		path = os.sep.join(self.convertInput.get().split(os.sep)[:-1] + ["settings.json"])
 		with open(path, "w") as settings:
@@ -313,6 +324,7 @@ class Gui:
 				jsonDict = json.loads(settings.read())
 			self.chainFolder.set(jsonDict["chainFolder"])
 			self.massSimulCount.set(jsonDict["massSimulCount"])
+			self.updateFreq.set(jsonDict["updateFreq"])
 
 	def estimateLoad(self):
 		with open(os.path.join(*self.estimateFolderInput.get().split(os.sep), "characteristics.json"), "r") as chars:
