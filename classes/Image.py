@@ -31,13 +31,14 @@ class Image:
 
 	def removeSmallComps(self, **kwargs):
 		minCompSize = kwargs.pop("minCompSize", 100)
+		connectivity = kwargs.pop("connectivity", 8)
 		minHoleSize = kwargs.pop("minHoleSize", 10)
 		maxHoleSize = kwargs.pop("maxHoleSize", 10**6)
-		invOutput = cv2.connectedComponentsWithStats(255-self.matrix, connectivity=8)
+		invOutput = cv2.connectedComponentsWithStats(255-self.matrix, connectivity=connectivity)
 		compSizes = invOutput[2][1:,4]
 		noComps = invOutput[0] - 1
 		compLabels = invOutput[1]
-		output = cv2.connectedComponentsWithStats(self.matrix, connectivity=8)
+		output = cv2.connectedComponentsWithStats(self.matrix, connectivity=connectivity)
 		holeSizes = output[2][1:,4]
 		noHoles = output[0] - 1
 		for i in range(noHoles):
@@ -58,7 +59,7 @@ class Image:
 		l = sum([cv2.arcLength(cnt, True) for cnt in cnts])
 		return l*self.edge/self.matrix.shape[1]
 
-	def chi(self):
+	def chi(self, connectivity):
 		invOutput = cv2.connectedComponentsWithStats(255-self.matrix, connectivity=8)
 		output = cv2.connectedComponentsWithStats(self.matrix, connectivity=8)
 		noComps = invOutput[0] - 1

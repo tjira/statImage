@@ -53,15 +53,11 @@ class Gui:
 		
 	def menuLayout(self):
 		self.fileMenu = Menu(self.menubar, tearoff=0)
-		self.settingsMenu = Menu(self.menubar, tearoff=0)
 		self.fileMenu.add_command(label="Open", command=self.open)
 		self.fileMenu.add_command(label="Save As", command=self.saveAs)
+		self.fileMenu.add_command(label="Preferences", command=self.preferences)
 		self.fileMenu.add_command(label="Quit", command=self.master.quit)
-		self.settingsMenu.add_command(label="Convert", command=self.convertPrefs)
-		self.settingsMenu.add_command(label="Simulate", command=self.simulPrefs)
-		self.settingsMenu.add_command(label="Estimate", command=self.estimPrefs)
 		self.menubar.add_cascade(label="File", menu=self.fileMenu)
-		self.menubar.add_cascade(label="Preferences", menu=self.settingsMenu)
 
 	def convertTabLayout(self):
 		self.convertTab = Frame(self.notebook)
@@ -91,7 +87,7 @@ class Gui:
 		self.maxHoleSizeEntry.pack(fill=X)
 		Tooltip.register(self.maxHoleSizeEntry, "Maximal hole size")
 		Button(self.convertTabOptions, text="Convert", command=lambda: Thread(target=self.convert).start()).pack(fill=X)
-		Button(self.convertTabOptions, text="Save Settings", command=lambda: Thread(target=self.saveSettings).start()).pack(fill=X)
+		Button(self.convertTabOptions, text="Save Settings", command=lambda: Thread(target=self.saveSettings, args=(1, )).start()).pack(fill=X)
 		self.convertCharWin = Treeview(self.convertTabOptions, columns=("Value"), height=4)
 		self.convertCharWin.heading("#0", text="Char")
 		self.convertCharWin.heading("Value", text="Value")
@@ -148,6 +144,8 @@ class Gui:
 		self.estimateTabOptions.pack(side=RIGHT, fill=Y)
 		Entry(self.estimateTab, textvariable=self.estimateImageInput, width=50).pack(fill=X)
 		Entry(self.estimateTab, textvariable=self.estimateFolderInput).pack(fill=X)
+		self.estimateILabel = Label(self.estimateTab)
+		self.estimateILabel.pack(fill=X)
 		Button(self.estimateTabOptions, text="Load", command=lambda: Thread(target=self.estimateLoad).start(), width=20).pack(fill=X)
 		self.estimateCharWin = Treeview(self.estimateTabOptions, columns=("Value"), height=4)
 		self.estimateCharWin.heading("#0", text="Param")
@@ -161,17 +159,35 @@ class Gui:
 		self.estimateProgress = Progressbar(self.estimateTabOptions, orient=HORIZONTAL, length=100, mode="indeterminate")
 		self.estimateProgress.pack(fill=X, side=BOTTOM)
 
-	def convertPrefs(self):
-		print("convert prefs")
-
-	def simulPrefs(self):
-		print("simul prefs")
-
-	def estimPrefs(self):
-		print("estim prefs")
+	def preferences(self):
+		prefs = Toplevel()
+		prefs.title("Preferences")
+		Label(prefs, text="General", width=25, font=("Helvetica", 16), anchor=CENTER).pack(fill=X)
+		self.updateFreqEntry = Entry(prefs, textvariable=self.updateFreq)
+		self.updateFreqEntry.pack()
+		Tooltip.register(self.updateFreqEntry, "Update Frequency")
+		self.loadingBarIncrementEntry = Entry(prefs, textvariable=self.loadingBarIncrement)
+		self.loadingBarIncrementEntry.pack()
+		Tooltip.register(self.loadingBarIncrementEntry, "Loading Bar Increment")
+		Label(prefs, text="Convert", font=("Helvetica", 16), anchor=CENTER).pack(fill=X)
+		self.connectivityEntry = Entry(prefs, textvariable=self.convertConnectivity)
+		self.connectivityEntry.pack()
+		Tooltip.register(self.connectivityEntry, "Connectivity (only 4 or 8)")
+		Label(prefs, text="Simulate", font=("Helvetica", 16), anchor=CENTER).pack(fill=X)
+		self.massSimulCountEntry = Entry(prefs, textvariable=self.massSimulCount)
+		self.massSimulCountEntry.pack()
+		Tooltip.register(self.massSimulCountEntry, "Mass Simulate Count")
+		self.chainFolderEntry = Entry(prefs, textvariable=self.chainFolder)
+		self.chainFolderEntry.pack()
+		Tooltip.register(self.chainFolderEntry, "Mass Simulate folder")
+		Label(prefs, text="Estimate", font=("Helvetica", 16), anchor=CENTER).pack(fill=X)
+		self.estimateAutoStopEntry = Entry(prefs, textvariable=self.estimateAutoStop)
+		self.estimateAutoStopEntry.pack()
+		Tooltip.register(self.estimateAutoStopEntry, "Auto Stop (stop when NaN or converged, only 0 or 1)")
+		Button(prefs, text="Save Settings", command=lambda: Thread(target=self.saveSettings, args=(2, )).start()).pack(fill=X)
 
 	def variables(self):
-		self.updateFreq = IntVar(value=60)
+		self.updateFreq = IntVar(value=20)
 		self.convertInput = StringVar(value=os.path.join("example", "image.png"))
 		self.convertThresh = IntVar(value=self.convertDefault["Threshold"])
 		self.convertMorphSeq = StringVar(value=self.convertDefault["MorphSeq"])
@@ -179,6 +195,7 @@ class Gui:
 		self.convertMinCompSize = IntVar(value=self.convertDefault["minCompSize"])
 		self.convertMinHoleSize = IntVar(value=self.convertDefault["minHoleSize"])
 		self.convertMaxHoleSize = IntVar(value=self.convertDefault["maxHoleSize"])
+		self.convertConnectivity = IntVar(value=8)
 		self.simulateSize = IntVar(value=self.simulateDefault["Size"])
 		self.lambda1 = DoubleVar(value=self.simulateDefault["lambda1"])
 		self.lambda2 = DoubleVar(value=self.simulateDefault["lambda2"])
@@ -190,21 +207,24 @@ class Gui:
 		self.massSimulCount = IntVar(value=100)
 		self.estimateImageInput = StringVar(value=os.path.join("example", "image_binaryEdited.png"))
 		self.estimateFolderInput = StringVar(value=os.path.join("example", "chain"))
+		self.loadingBarIncrement = IntVar(value=1)
+		self.estimateAutoStop = BooleanVar(value=1)
 		self.notebook.bind("<<NotebookTabChanged>>", self.notebookResize)
-		self.loadSettings()
+		self.loadSettings(1)
+		self.loadSettings(2)
 
 	def convert(self):
 		self.running = True
 		Thread(target=self.loading, args=(self.convertProgress, )).start()
 		image = Image(filename=self.convertInput.get())
-		chars = image.computeChars(threshold=self.convertThresh.get(), kernel=eval(self.convertMorphKernel.get()), seq=eval(self.convertMorphSeq.get()), minCompSize=self.convertMinCompSize.get(), maxHoleSize=self.convertMaxHoleSize.get(), minHoleSize=self.convertMinHoleSize.get())
+		chars = image.computeChars(threshold=self.convertThresh.get(), connectivity=self.convertConnectivity.get(), kernel=eval(self.convertMorphKernel.get()), seq=eval(self.convertMorphSeq.get()), minCompSize=self.convertMinCompSize.get(), maxHoleSize=self.convertMaxHoleSize.get(), minHoleSize=self.convertMinHoleSize.get())
 		self.display(self.convertILabel, filename=image.filenames[2])
 		self.displayChars(chars, self.convertCharWin)
 		self.running = False
 
 	def simulate(self, mass=[False, 0], ):
 		params = (self.lambda1.get(), self.lambda2.get(), self.lambda3.get())
-		model = MH(size=self.simulateSize.get(), r=eval(self.rRange.get()), params=params, intensity=self.intensity.get())
+		model = MH(size=self.simulateSize.get(), r=eval(self.rRange.get()), params=params, intensity=self.intensity.get(), connectivity=self.convertConnectivity.get())
 		factor = 1 if not mass[0] else self.massSimulCount.get()
 		start = time.time()
 		for i in range(self.simulateIters.get()):
@@ -245,11 +265,16 @@ class Gui:
 		image = self.estimateImageInput.get()
 		folder = self.estimateFolderInput.get()
 		start = time.time()
-		alg = MLE(image, folder=folder)
+		alg = MLE(image, folder=folder, connectivity=self.convertConnectivity)
+		prev = numpy.copy(alg.theta)
 		while not self.stopFlag:
 			alg.iteration()
+			if self.estimateAutoStop.get():
+				if numpy.sum(numpy.abs(prev-alg.theta)) < 0.0001 or numpy.isnan(numpy.sum(alg.theta)):
+					break
 			if time.time() - start > 1/self.updateFreq.get():
 				self.displayParams(alg.theta, self.estimateCharWin)
+			prev = numpy.copy(alg.theta)
 		self.running = False
 
 	def display(self, label, **kwargs):
@@ -289,47 +314,57 @@ class Gui:
 		tree.insert("", 0, text="Length", values=(round(params[1], 3)))
 		tree.insert("", 0, text="Area", values=(round(params[0], 3)))
 
-	def saveSettings(self):
-		convertJsonDict = json.dumps({
-			"Threshold": self.convertThresh.get(),
-			"MorphKernel": str(self.convertMorphKernel.get()),
-			"MorphSeq": str(self.convertMorphSeq.get()),
-			"minCompSize": self.convertMinCompSize.get(), 
-			"maxHoleSize": self.convertMaxHoleSize.get(),
-			"minHoleSize": self.convertMinHoleSize.get()
-			}, sort_keys=True, indent=4)
-		globalJsonDict = json.dumps({
-			"chainFolder": self.chainFolder.get(),
-			"massSimulCount": self.massSimulCount.get(),
-			"updateFreq": self.updateFreq.get()
-			}, sort_keys=True, indent=4)
-		path = os.sep.join(self.convertInput.get().split(os.sep)[:-1] + ["settings.json"])
-		with open(path, "w") as settings:
-			settings.write(convertJsonDict)
-		with open(self.preferencesFile, "w") as settings:
-			settings.write(globalJsonDict)
+	def saveSettings(self, mode):
+		if mode == 1:
+			path = os.sep.join(self.convertInput.get().split(os.sep)[:-1] + ["settings.json"])
+			convertJsonDict = json.dumps({
+				"Threshold": self.convertThresh.get(),
+				"MorphKernel": str(self.convertMorphKernel.get()),
+				"MorphSeq": str(self.convertMorphSeq.get()),
+				"minCompSize": self.convertMinCompSize.get(), 
+				"maxHoleSize": self.convertMaxHoleSize.get(),
+				"minHoleSize": self.convertMinHoleSize.get()
+				}, sort_keys=True, indent=4)
+			with open(path, "w") as settings:
+				settings.write(convertJsonDict)
+		if mode == 2:
+			globalJsonDict = json.dumps({
+				"chainFolder": self.chainFolder.get(),
+				"massSimulCount": self.massSimulCount.get(),
+				"updateFreq": self.updateFreq.get(),
+				"loadingBarIncrement": self.loadingBarIncrement.get(),
+				"connectivity": self.convertConnectivity.get(),
+				"estimateAutoStop": self.estimateAutoStop.get()
+				}, sort_keys=True, indent=4)
+			with open(self.preferencesFile, "w") as settings:
+				settings.write(globalJsonDict)
 
-	def loadSettings(self):
-		convertSettingsPath = os.sep.join(self.convertInput.get().split(os.sep)[:-1] + ["settings.json"])
-		if os.path.exists(convertSettingsPath):
-			with open(convertSettingsPath, "r") as settings:
-				jsonDict = json.loads(settings.read())
-			self.convertThresh.set(jsonDict["Threshold"])
-			self.convertMorphSeq.set(jsonDict["MorphSeq"])
-			self.convertMorphKernel.set(jsonDict["MorphKernel"])
-			self.convertMinCompSize.set(jsonDict["minCompSize"])
-			self.convertMinHoleSize.set(jsonDict["minHoleSize"])
-			self.convertMaxHoleSize.set(jsonDict["maxHoleSize"])
-		if os.path.exists(self.preferencesFile):
-			with open(self.preferencesFile, "r") as settings:
-				jsonDict = json.loads(settings.read())
-			self.chainFolder.set(jsonDict["chainFolder"])
-			self.massSimulCount.set(jsonDict["massSimulCount"])
-			self.updateFreq.set(jsonDict["updateFreq"])
+	def loadSettings(self, mode):
+		if mode == 1:
+			convertSettingsPath = os.sep.join(self.convertInput.get().split(os.sep)[:-1] + ["settings.json"])
+			if os.path.exists(convertSettingsPath):
+				with open(convertSettingsPath, "r") as settings:
+					jsonDict = json.loads(settings.read())
+				self.convertThresh.set(jsonDict["Threshold"])
+				self.convertMorphSeq.set(jsonDict["MorphSeq"])
+				self.convertMorphKernel.set(jsonDict["MorphKernel"])
+				self.convertMinCompSize.set(jsonDict["minCompSize"])
+				self.convertMinHoleSize.set(jsonDict["minHoleSize"])
+				self.convertMaxHoleSize.set(jsonDict["maxHoleSize"])
+		if mode == 2:
+			if os.path.exists(self.preferencesFile):
+				with open(self.preferencesFile, "r") as settings:
+					jsonDict = json.loads(settings.read())
+				self.chainFolder.set(jsonDict["chainFolder"])
+				self.massSimulCount.set(jsonDict["massSimulCount"])
+				self.updateFreq.set(jsonDict["updateFreq"])
+				self.loadingBarIncrement.set(jsonDict["loadingBarIncrement"])
+				self.convertConnectivity.set(jsonDict["connectivity"])
+				self.estimateAutoStop.set(jsonDict["estimateAutoStop"])
 
 	def convertLoad(self):
 		self.display(self.convertILabel, filename=self.convertInput.get())
-		self.loadSettings()
+		self.loadSettings(1)
 
 	def estimateLoad(self):
 		self.running = True
@@ -337,6 +372,7 @@ class Gui:
 		with open(os.path.join(*self.estimateFolderInput.get().split(os.sep), "characteristics.json"), "r") as chars:
 			chain = json.loads(chars.read())
 		self.displayParams(chain["params"], self.estimateCharWin)
+		self.display(self.estimateILabel, filename=self.estimateImageInput.get())
 		self.running = False
 
 	def open(self):
@@ -374,8 +410,7 @@ class Gui:
 		self.stopFlag = False
 
 	def loading(self, bar):
-		increment = 1
 		while self.running:
-			bar["value"] += increment
-			time.sleep(.01)
+			bar["value"] += self.loadingBarIncrement.get()
+			time.sleep(.05)
 		bar["value"] = 0

@@ -6,6 +6,7 @@ from Image import Image
 
 class MLE:
 	def __init__(self, image, **kwargs):
+		self.connectivity = kwargs.pop("connectivity", "8")
 		self.image = Image(filename=image)
 		self.folder = kwargs.pop("folder", "chain")
 		self.guz, self.theta0 = self.loadChain()
@@ -40,5 +41,5 @@ class MLE:
 	def countChars(self):
 		a = self.image.area()
 		l = self.image.length()
-		chi = self.image.chi()
+		chi = self.image.chi(self.connectivity)
 		return numpy.array([a, l, chi[0]-chi[1]])

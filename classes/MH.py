@@ -6,6 +6,7 @@ from Image import Image
 
 class MH:
 	def __init__(self, **kwargs):
+		self.connectivity = kwargs.pop("connectivity", 8)
 		self.size = kwargs.pop("size", 100)
 		self.iters = kwargs.pop("iters", 1000)
 		self.r = kwargs.pop("r", (5, 10))
@@ -26,7 +27,7 @@ class MH:
 			if random.random() > self.HR(action):
 				del self.circles[index]
 				self.commit()
-		return self.image.matrix, [self.image.area(), self.image.length(), self.image.chi()]
+		return self.image.matrix, [self.image.area(), self.image.length(), self.image.chi(self.connectivity)]
 
 	def makeImage(self, circles):
 		image = Image(matrix=numpy.ones((self.size, self.size), dtype=numpy.uint8)*255)
@@ -51,12 +52,12 @@ class MH:
 		return circle
 
 	def chars(self):
-		chi = self.image.chi()
+		chi = self.image.chi(self.connectivity)
 		chars = [self.image.area(), self.image.length(), chi[0] - chi[1]]
 		return numpy.array(chars)
 
 	def tempChars(self):
-		chi = self.temp.chi()
+		chi = self.temp.chi(self.connectivity)
 		chars = [self.temp.area(), self.temp.length(), chi[0] - chi[1]]
 		return numpy.array(chars)
 
