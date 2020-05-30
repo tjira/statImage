@@ -1,18 +1,18 @@
 import os
+import time
+import json
+import numpy
+import Tooltip
 import PIL.ImageTk
 import PIL.Image
 from tkinter import *
 from tkinter.ttk import *
 from threading import Thread
-from MH import MH
-import Tooltip
-from Image import Image
-from MLE import MLE
-import time
-import json
-import numpy
 from shutil import rmtree
 from tkinter import filedialog
+from MH import MH
+from Image import Image
+from MLE import MLE
 
 
 class Gui:
@@ -98,8 +98,8 @@ class Gui:
 		self.convertCharWin.column("#0", width=50)
 		self.convertCharWin.column("Value", width=50)
 		self.convertCharWin.pack(fill=X)
-		self.convertCanvas = Canvas(self.convertTabOptions, bg="blue", width=100, height=50)
-		self.convertCanvas.pack(fill=X, side=BOTTOM)
+		self.convertProgress = Progressbar(self.convertTabOptions, orient=HORIZONTAL, length=100, mode="indeterminate")
+		self.convertProgress.pack(fill=X, side=BOTTOM)
 
 	def simulateTabLayout(self):
 		self.simulateTab = Frame(self.notebook)
@@ -158,8 +158,8 @@ class Gui:
 		Button(self.estimateTabOptions, text="Estimate", command=lambda: Thread(target=self.estimate).start()).pack(fill=X)
 		Button(self.estimateTabOptions, text="Copy Parameters", command=lambda: Thread(target=self.copyParameters).start()).pack(fill=X)
 		Button(self.estimateTabOptions, text="Stop", command=lambda: Thread(target=self.stop).start()).pack(fill=X)
-		self.estimateCanvas = Canvas(self.estimateTabOptions, bg="blue", width=100, height=50)
-		self.estimateCanvas.pack(fill=X, side=BOTTOM)
+		self.estimateProgress = Progressbar(self.estimateTabOptions, orient=HORIZONTAL, length=100, mode="indeterminate")
+		self.estimateProgress.pack(fill=X, side=BOTTOM)
 
 	def convertPrefs(self):
 		print("convert prefs")
@@ -195,8 +195,7 @@ class Gui:
 
 	def convert(self):
 		self.running = True
-		Thread(target=self.loading, args=(self.convertCanvas, )).start()
-
+		Thread(target=self.loading, args=(self.convertProgress, )).start()
 		image = Image(filename=self.convertInput.get())
 		chars = image.computeChars(threshold=self.convertThresh.get(), kernel=eval(self.convertMorphKernel.get()), seq=eval(self.convertMorphSeq.get()), minCompSize=self.convertMinCompSize.get(), maxHoleSize=self.convertMaxHoleSize.get(), minHoleSize=self.convertMinHoleSize.get())
 		self.display(self.convertILabel, filename=image.filenames[2])
@@ -204,8 +203,6 @@ class Gui:
 		self.running = False
 
 	def simulate(self, mass=[False, 0], ):
-		self.running = True
-		Thread(target=self.loading, args=(self.convertCanvas, )).start()
 		params = (self.lambda1.get(), self.lambda2.get(), self.lambda3.get())
 		model = MH(size=self.simulateSize.get(), r=eval(self.rRange.get()), params=params, intensity=self.intensity.get())
 		factor = 1 if not mass[0] else self.massSimulCount.get()
@@ -223,7 +220,6 @@ class Gui:
 		self.display(self.simulateILabel, matrix=self.simulImage)
 		if not mass[0]:
 			self.simulateProgress["value"] = 100
-		self.running = False
 		return chars
 
 	def massSimulate(self):
@@ -244,18 +240,23 @@ class Gui:
 
 	def estimate(self):
 		self.estimateLoad()
+		self.running = True
+		Thread(target=self.loading, args=(self.estimateProgress, )).start()
 		image = self.estimateImageInput.get()
 		folder = self.estimateFolderInput.get()
+		start = time.time()
 		alg = MLE(image, folder=folder)
 		while not self.stopFlag:
 			alg.iteration()
-			self.displayParams(alg.theta, self.estimateCharWin)
+			if time.time() - start > 1/self.updateFreq.get():
+				self.displayParams(alg.theta, self.estimateCharWin)
+		self.running = False
 
 	def display(self, label, **kwargs):
 		height = 500
 		width = 1000
 		self.running = True
-		Thread(target=self.loading, args=(self.convertCanvas, )).start()
+		Thread(target=self.loading, args=(self.convertProgress, )).start()
 		filename = kwargs.pop("filename", None)
 		tabName = self.notebook.tab(self.notebook.nametowidget(self.notebook.select()))["text"]
 		if filename:
@@ -331,9 +332,12 @@ class Gui:
 		self.loadSettings()
 
 	def estimateLoad(self):
+		self.running = True
+		Thread(target=self.loading, args=(self.estimateProgress, )).start()
 		with open(os.path.join(*self.estimateFolderInput.get().split(os.sep), "characteristics.json"), "r") as chars:
 			chain = json.loads(chars.read())
 		self.displayParams(chain["params"], self.estimateCharWin)
+		self.running = False
 
 	def open(self):
 		title = "Choose an image"
@@ -369,6 +373,9 @@ class Gui:
 		time.sleep(1)
 		self.stopFlag = False
 
-	def loading(self, canvas):
+	def loading(self, bar):
+		increment = 1
 		while self.running:
-			time.sleep(.1)
+			bar["value"] += increment
+			time.sleep(.01)
+		bar["value"] = 0
