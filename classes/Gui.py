@@ -67,6 +67,8 @@ class Gui:
 		Entry(self.convertTab, textvariable=self.convertInput).pack(fill=X)
 		self.convertILabel = Label(self.convertTab, width=50)
 		self.convertILabel.pack()
+		self.convertImageChooser = Combobox(self.convertTabOptions, textvariable=self.convertDisplayed, state="readonly")
+		self.convertImageChooser.pack(fill=X)
 		Button(self.convertTabOptions, text="Load", command=lambda: Thread(target=self.convertLoad).start()).pack(fill=X)
 		self.thresholdEntry = Entry(self.convertTabOptions, textvariable=self.convertThresh)
 		self.thresholdEntry.pack(fill=X)
@@ -209,6 +211,8 @@ class Gui:
 		self.estimateFolderInput = StringVar(value=os.path.join("example", "chain"))
 		self.loadingBarIncrement = IntVar(value=5)
 		self.estimateAutoStop = BooleanVar(value=1)
+		self.convertDisplayed = StringVar()
+		self.convertDisplayed.trace("w", self.convertChangeDisplayed)
 		self.notebook.bind("<<NotebookTabChanged>>", self.notebookResize)
 		self.loadSettings(1)
 		self.loadSettings(2)
@@ -218,7 +222,7 @@ class Gui:
 		Thread(target=self.loading, args=(self.convertProgress, )).start()
 		image = Image(filename=self.convertInput.get())
 		chars = image.computeChars(threshold=self.convertThresh.get(), connectivity=self.convertConnectivity.get(), kernel=eval(self.convertMorphKernel.get()), seq=eval(self.convertMorphSeq.get()), minCompSize=self.convertMinCompSize.get(), maxHoleSize=self.convertMaxHoleSize.get(), minHoleSize=self.convertMinHoleSize.get())
-		self.display(self.convertILabel, filename=image.filenames[2])
+		self.updateConvertCombobox("_binaryEdited")
 		self.displayChars(chars, self.convertCharWin)
 		self.running = False
 
@@ -364,8 +368,9 @@ class Gui:
 				self.estimateAutoStop.set(jsonDict["estimateAutoStop"])
 
 	def convertLoad(self):
-		self.display(self.convertILabel, filename=self.convertInput.get())
+		self.updateConvertCombobox("")
 		self.loadSettings(1)
+		
 
 	def estimateLoad(self):
 		self.running = True
@@ -379,7 +384,7 @@ class Gui:
 	def open(self):
 		title = "Choose an image"
 		filetypes = (("Image", ".jpg .jpeg .png .bmp"), ("All Files","*.*"))
-		path = filedialog.askopenfilename(initialdir="./", filetypes=filetypes, title=title)
+		path = filedialog.askopenfilename(initialdir=os.getcwd(), filetypes=filetypes, title=title)
 		if path:
 			self.convertInput.set(path)
 			self.display(self.convertILabel, filename=path)
@@ -387,7 +392,7 @@ class Gui:
 	def saveAs(self):
 		title = "Choose a location"
 		filetypes = (("Image", ".png"), ("All Files", "*.*"))
-		path = filedialog.asksaveasfilename(initialdir="./", title=title, filetypes=filetypes)
+		path = filedialog.asksaveasfilename(initialdir=os.getcwd(), title=title, filetypes=filetypes)
 		if path:
 			self.tempImage.save(path)
 		print(path)
@@ -396,6 +401,19 @@ class Gui:
 		self.notebook.update_idletasks()
 		tab = self.notebook.nametowidget(self.notebook.select())
 		self.notebook.configure(height=tab.winfo_reqheight(), width=tab.winfo_reqwidth())
+
+	def updateConvertCombobox(self, appendix):
+		imageName = self.convertInput.get().split(os.sep)[-1]
+		items = list(os.walk(os.sep.join(self.convertInput.get().split(os.sep)[:-1])))[0]
+		images = [file for folder in items for file in folder if ".png" in file or ".jpg" in file or ".jpeg" in file or ".bmp" in file or ".tiff" in file]
+		self.convertImageChooser["values"] = images
+		index = [images.index(item) for item in images if appendix in item][0]
+		self.convertDisplayed.set(images[index])
+
+	def convertChangeDisplayed(self, *args):
+		imageName = self.convertDisplayed.get()
+		path = self.convertInput.get().split(os.sep)[:-1] + [imageName]
+		self.display(self.convertILabel, filename=os.sep.join(path))
 
 	def copyParameters(self):
 		params = list()
