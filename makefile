@@ -10,6 +10,7 @@ clean-files:
 	find . -name "*_threshold*" -exec rm --force {} +
 	find . -name "*_binary*" -exec rm --force {} +
 	find . -name "stats.json" -exec rm --force {} +
+	find . -name "estimation.json" -exec rm --force {} +
 	rm --force "settings.json"
 	
 build:

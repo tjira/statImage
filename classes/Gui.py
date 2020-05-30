@@ -207,7 +207,7 @@ class Gui:
 		self.massSimulCount = IntVar(value=100)
 		self.estimateImageInput = StringVar(value=os.path.join("example", "image_binaryEdited.png"))
 		self.estimateFolderInput = StringVar(value=os.path.join("example", "chain"))
-		self.loadingBarIncrement = IntVar(value=1)
+		self.loadingBarIncrement = IntVar(value=5)
 		self.estimateAutoStop = BooleanVar(value=1)
 		self.notebook.bind("<<NotebookTabChanged>>", self.notebookResize)
 		self.loadSettings(1)
@@ -275,6 +275,7 @@ class Gui:
 			if time.time() - start > 1/self.updateFreq.get():
 				self.displayParams(alg.theta, self.estimateCharWin)
 			prev = numpy.copy(alg.theta)
+		alg.saveThetas()
 		self.running = False
 
 	def display(self, label, **kwargs):

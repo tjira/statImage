@@ -4,5 +4,6 @@ __pycache__/
 *_binary.png
 *_binaryEdited.png
 stats.json
+estimation.json
 settings.json
 statImage
