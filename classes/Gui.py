@@ -508,7 +508,7 @@ class Gui:
 	def saveAs(self):
 		title = "Choose a location"
 		filetypes = (("Image", ".png"), ("All Files", "*.*"))
-		path = filedialog.askdirectory(initialdir=os.getcwd(), title=title, filetypes=filetypes)
+		path = filedialog.asksaveasfile(initialdir=os.getcwd(), title=title, filetypes=filetypes)
 		if path:
 			self.tempImage.save(path)
 
