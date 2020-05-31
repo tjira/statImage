@@ -4,8 +4,10 @@ intervals/
 *_threshold.png
 *_binary.png
 *_binaryEdited.png
+*_intensityGrid.png
 stats.json
 estimation.json
 confidence.json
+intensity.json
 settings.json
 statImage

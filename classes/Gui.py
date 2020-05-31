@@ -15,6 +15,7 @@ from tkinter import messagebox
 from MH import MH
 from Image import Image
 from Intervals import Intervals
+from Intensity import Intensity
 from MLE import MLE
 
 
@@ -157,13 +158,21 @@ class Gui:
 		self.estimateILabel = Label(self.estimateTab)
 		self.estimateILabel.pack(fill=X)
 		Button(self.estimateTabOptions, text="Load", command=lambda: Thread(target=self.estimateLoad).start(), width=20).pack(fill=X)
-		self.estimateCharWin = Treeview(self.estimateTabOptions, columns=("Value"), height=4)
+		self.estimateIntensityGridEntry = Entry(self.estimateTabOptions, textvariable=self.intensityGridSize)
+		self.estimateIntensityGridEntry.pack(fill=X)
+		Tooltip.register(self.estimateIntensityGridEntry, "Intensity grid size.")
+		self.estimateCharWin = Treeview(self.estimateTabOptions, columns=("Value"), height=3)
 		self.estimateCharWin.heading("#0", text="Param")
 		self.estimateCharWin.heading("Value", text="Value")
 		self.estimateCharWin.column("#0", width=50)
 		self.estimateCharWin.column("Value", width=50)
 		self.estimateCharWin.pack(fill=X)
-		Button(self.estimateTabOptions, text="Estimate", command=lambda: Thread(target=self.estimate).start()).pack(fill=X)
+		self.estimateIntWin = Treeview(self.estimateTabOptions, columns=(), height=1)
+		self.estimateIntWin.heading("#0", text="Intensity")
+		self.estimateIntWin.column("#0", width=50)
+		self.estimateIntWin.pack(fill=X)
+		Button(self.estimateTabOptions, text="Estimate Parameters", command=lambda: Thread(target=self.estimate).start()).pack(fill=X)
+		Button(self.estimateTabOptions, text="Estimate Intensity", command=lambda: Thread(target=self.estimateIntensity).start()).pack(fill=X)
 		Button(self.estimateTabOptions, text="Copy Parameters", command=lambda: Thread(target=self.copyParameters).start()).pack(fill=X)
 		Button(self.estimateTabOptions, text="Stop", command=lambda: Thread(target=self.stop).start()).pack(fill=X)
 		self.estimateProgress = Progressbar(self.estimateTabOptions, orient=HORIZONTAL, length=100, mode="indeterminate")
@@ -261,6 +270,7 @@ class Gui:
 		self.aInt = StringVar(value="A")
 		self.lInt = StringVar(value="L")
 		self.chiInt = StringVar(value="Chi")
+		self.intensityGridSize = IntVar(value=3)
 		self.loadSettings(1)
 		self.loadSettings(2)
 
@@ -277,7 +287,7 @@ class Gui:
 	def convert(self):
 		image = Image(filename=self.convertInput.get())
 		chars = image.computeChars(threshold=self.convertThresh.get(), connectivity=self.convertConnectivity.get(), kernel=eval(self.convertMorphKernel.get()), seq=eval(self.convertMorphSeq.get()), minCompSize=self.convertMinCompSize.get(), maxHoleSize=self.convertMaxHoleSize.get(), minHoleSize=self.convertMinHoleSize.get())
-		self.updateConvertCombobox("_binaryEdited")
+		self.updateConvertCombobox("_binaryEdited.")
 		self.displayChars(chars, self.convertCharWin)
 
 	def simulate(self, mass=[False, 0], ):
@@ -335,6 +345,18 @@ class Gui:
 				start = time.time()
 			prev = numpy.copy(alg.theta)
 		alg.saveThetas()
+		self.running = False
+
+	def estimateIntensity(self):
+		self.running = True
+		Thread(target=self.loading, args=(self.estimateProgress, )).start()
+		obj = Intensity(self.estimateImageInput.get(), self.intensityGridSize.get())
+		intensity = obj.estimate()
+		for i in self.estimateIntWin.get_children():
+			self.estimateIntWin.delete(i)
+		self.estimateIntWin.insert("", 0, text=str(intensity))
+		filename = self.estimateImageInput.get().split(".")[0] + "_intensityGrid.png"
+		self.display(self.estimateILabel, filename=filename)
 		self.running = False
 
 	def summarize(self):
@@ -440,9 +462,8 @@ class Gui:
 				self.estimateAutoStop.set(jsonDict["estimateAutoStop"])
 
 	def convertLoad(self):
-		self.updateConvertCombobox("")
+		self.updateConvertCombobox("", True)
 		self.loadSettings(1)
-		
 
 	def estimateLoad(self):
 		self.running = True
@@ -461,10 +482,13 @@ class Gui:
 				jsonChars = json.loads(chars.read())
 			with open(os.path.join(imageFolder, "estimation.json"), "r") as params:
 				jsonParams = json.loads(params.read())
+			with open(os.path.join(imageFolder, "intensity.json"), "r") as params:
+				intensity = json.loads(params.read())["intensity"]
 			paramsIndex = max([int(i) for i in jsonParams.keys()])
 			chars = jsonChars["Characteristics"]
 			self.displayParams(jsonParams[str(paramsIndex)], self.intervalsParamWin)
 			self.displayChars(chars, self.intervalsCharWin)
+			self.intervalsParamWin.insert("", 0, text="Intensity", values=(round(intensity, 2)))
 		return ok
 			
 
@@ -472,12 +496,16 @@ class Gui:
 		imageFolder = getFolder(self.intervalsImage.get())
 		statsExists = os.path.exists(os.path.join(imageFolder, "stats.json"))
 		estimationExists = os.path.exists(os.path.join(imageFolder, "estimation.json"))
+		intensityExists = os.path.exists(os.path.join(imageFolder, "intensity.json"))
 		chainExists = os.path.exists(self.intervalsChain.get())
 		if not statsExists:
 			messagebox.showerror(title="Error", message="Converted data not found.")
 			return False
 		if not estimationExists:
 			messagebox.showerror(title="Error", message="Estimation data not found.")
+			return False
+		if not intensityExists:
+			messagebox.showerror(title="Error", message="Estimation of intensity not found.")
 			return False
 		if not chainExists:
 			messagebox.showerror(title="Error", message="Chain folder not found.")
@@ -537,11 +565,13 @@ class Gui:
 		tab = self.notebook.nametowidget(self.notebook.select())
 		self.notebook.configure(height=tab.winfo_reqheight(), width=tab.winfo_reqwidth())
 
-	def updateConvertCombobox(self, appendix):
+	def updateConvertCombobox(self, appendix, load=False):
 		items = list(os.walk(getFolder(self.convertInput.get())))[0]
 		images = [file for folder in items for file in folder if ".png" in file or ".jpg" in file or ".jpeg" in file or ".bmp" in file or ".tiff" in file]
 		self.convertImageChooser["values"] = images
 		index = [images.index(item) for item in images if appendix in item][0]
+		if load:
+			index = images.index(min(images, key=len))
 		self.convertDisplayed.set(images[index])
 
 	def convertChangeDisplayed(self, *args):
@@ -552,9 +582,12 @@ class Gui:
 		params = list()
 		for child in self.estimateCharWin.get_children():
 			params.append(float(self.estimateCharWin.item(child)["values"][0]))
+		for child in self.estimateIntWin.get_children():
+			params.append(float(self.estimateIntWin.item(child)["text"]))
 		self.lambda1.set(params[0])
 		self.lambda2.set(params[1])
 		self.lambda3.set(params[2])
+		self.intensity.set(params[3])
 
 	def bindEnter(self):
 		tab = self.getTabName()
