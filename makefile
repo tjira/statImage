@@ -2,6 +2,7 @@ all: build clean-folders clean-files
 
 clean-folders:
 	find . -name "__pycache__" -exec rm --recursive --force {} +
+	find . -name "intervals" -exec rm --recursive --force {} +
 	rm --recursive --force chain
 	rm --recursive --force dist
 	rm --recursive --force build
