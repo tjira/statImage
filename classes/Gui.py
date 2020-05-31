@@ -248,7 +248,7 @@ class Gui:
 		self.rRange = StringVar(value=self.simulateDefault["rRange"])
 		self.simulateIters = IntVar(value=self.simulateDefault["Iterations"])
 		self.chainFolder = StringVar(value="chain")
-		self.massSimulCount = IntVar(value=100)
+		self.massSimulCount = IntVar(value=19)
 		self.estimateImageInput = StringVar(value=os.path.join("example", "image_binaryEdited.png"))
 		self.estimateFolderInput = StringVar(value=os.path.join("example", "chain"))
 		self.loadingBarIncrement = IntVar(value=5)
@@ -269,12 +269,12 @@ class Gui:
 		self.notebook.bind("<<NotebookTabChanged>>", self.notebookResize)
 		self.master.bind("<Control-s>", lambda e: self.saveAs())
 		self.master.bind("<Control-o>", lambda e: self.openFile())
+		self.master.bind("<Control-p>", lambda e: self.preferences())
 		self.master.bind("<Control-Left>", self.bindChangeTab)
 		self.master.bind("<Control-Right>", self.bindChangeTab)
 		self.master.bind("<Return>", lambda e: Thread(target=self.bindEnter).start())
 
 	def convert(self):
-		self.convertLoad()
 		image = Image(filename=self.convertInput.get())
 		chars = image.computeChars(threshold=self.convertThresh.get(), connectivity=self.convertConnectivity.get(), kernel=eval(self.convertMorphKernel.get()), seq=eval(self.convertMorphSeq.get()), minCompSize=self.convertMinCompSize.get(), maxHoleSize=self.convertMaxHoleSize.get(), minHoleSize=self.convertMinHoleSize.get())
 		self.updateConvertCombobox("_binaryEdited")

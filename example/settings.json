@@ -2,7 +2,7 @@
     "MorphKernel": "(2, 2)",
     "MorphSeq": "(7, 0)",
     "Threshold": 100,
-    "maxHoleSize": 1000,
-    "minCompSize": 50,
-    "minHoleSize": 10
+    "maxHoleSize": 100,
+    "minCompSize": 0,
+    "minHoleSize": 0
 }

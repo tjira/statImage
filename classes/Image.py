@@ -31,6 +31,7 @@ class Image:
 
 	def removeSmallComps(self, **kwargs):
 		minCompSize = kwargs.pop("minCompSize", 100)
+		print(minCompSize)
 		connectivity = kwargs.pop("connectivity", 8)
 		minHoleSize = kwargs.pop("minHoleSize", 10)
 		maxHoleSize = kwargs.pop("maxHoleSize", 10**6)
