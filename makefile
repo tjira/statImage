@@ -12,6 +12,7 @@ clean-files:
 	find . -name "*_binary*" -exec rm --force {} +
 	find . -name "stats.json" -exec rm --force {} +
 	find . -name "estimation.json" -exec rm --force {} +
+	find . -name "confidence.json" -exec rm --force {} +
 	rm --force "settings.json"
 	
 build:
