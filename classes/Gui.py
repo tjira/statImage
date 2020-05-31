@@ -52,13 +52,14 @@ class Gui:
 		self.simulateTabLayout()
 		self.estimateTabLayout()
 		self.intervalsTabLayout()
+		self.bindings()
 		self.notebook.pack()
 		self.master.config(menu=self.menubar)
 		
 	def menuLayout(self):
 		self.fileMenu = Menu(self.menubar, tearoff=0)
-		self.fileMenu.add_command(label="Open", command=lambda: self.openFile(self.notebook.tab(self.notebook.select(), "text")))
-		self.fileMenu.add_command(label="Open Folder", command=lambda: self.openFolder(self.notebook.tab(self.notebook.select(), "text")))
+		self.fileMenu.add_command(label="Open", command=lambda: self.openFile())
+		self.fileMenu.add_command(label="Open Folder", command=lambda: self.openFolder())
 		self.fileMenu.add_command(label="Save As", command=self.saveAs)
 		self.fileMenu.add_command(label="Preferences", command=self.preferences)
 		self.fileMenu.add_command(label="Quit", command=self.master.quit)
@@ -260,12 +261,17 @@ class Gui:
 		self.aInt = StringVar(value="A")
 		self.lInt = StringVar(value="L")
 		self.chiInt = StringVar(value="Chi")
-		self.convertDisplayed.trace("w", self.convertChangeDisplayed)
-		self.notebook.bind("<<NotebookTabChanged>>", self.notebookResize)
 		self.loadSettings(1)
 		self.loadSettings(2)
 
+	def bindings(self):
+		self.convertDisplayed.trace("w", self.convertChangeDisplayed)
+		self.notebook.bind("<<NotebookTabChanged>>", self.notebookResize)
+		self.master.bind("<Control-s>", lambda e: self.saveAs())
+		self.master.bind("<Control-o>", lambda e: self.openFile())
+
 	def convert(self):
+		self.convertLoad()
 		image = Image(filename=self.convertInput.get())
 		chars = image.computeChars(threshold=self.convertThresh.get(), connectivity=self.convertConnectivity.get(), kernel=eval(self.convertMorphKernel.get()), seq=eval(self.convertMorphSeq.get()), minCompSize=self.convertMinCompSize.get(), maxHoleSize=self.convertMaxHoleSize.get(), minHoleSize=self.convertMinHoleSize.get())
 		self.updateConvertCombobox("_binaryEdited")
@@ -347,14 +353,13 @@ class Gui:
 			lImage = cv2.cvtColor(cv2.imread(os.path.join(intFolder, "L.png"), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGRA2RGBA)
 			chiImage = cv2.cvtColor(cv2.imread(os.path.join(intFolder, "Chi.png"), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGRA2RGBA)
 			img = numpy.concatenate((aImage, lImage, chiImage), axis=0)
-
 			self.display(self.intervalsILabel, matrix=img)
 
 	def display(self, label, **kwargs):
 		height = 500
 		width = 1000
 		filename = kwargs.pop("filename", None)
-		tabName = self.notebook.tab(self.notebook.nametowidget(self.notebook.select()))["text"]
+		tabName = self.getTabName()
 		if filename:
 			image = PIL.Image.open(filename)
 		else:
@@ -481,7 +486,11 @@ class Gui:
 			return False
 		return True
 
-	def openFile(self, tab):
+	def openFile(self):
+		tab = self.getTabName()
+		if tab == "Simulate":
+			messagebox.showerror(title="Error", message="You can't use that in this tab.")
+			return
 		title = "Choose an image"
 		filetypes = (("Image", ".jpg .jpeg .png .bmp"), ("All Files","*.*"))
 		path = filedialog.askopenfilename(initialdir=os.getcwd(), filetypes=filetypes, title=title)
@@ -496,7 +505,11 @@ class Gui:
 				self.intervalsImage.set(path)
 				self.intervalsLoad()
 
-	def openFolder(self, tab):
+	def openFolder(self):
+		tab = self.getTabName()
+		if tab in ["Convert", "Simulate"]:
+			messagebox.showerror(title="Error", message="You can't use that in this tab.")
+			return
 		title = "Choose a folder"
 		path = filedialog.askdirectory(initialdir=os.getcwd())
 		if path:
@@ -506,11 +519,15 @@ class Gui:
 				self.intervalsChain.set(path)
 
 	def saveAs(self):
+		tab = self.getTabName()
+		if tab != "Simulate":
+			messagebox.showerror(title="Error", message="You can't use that in this tab.")
+			return
 		title = "Choose a location"
 		filetypes = (("Image", ".png"), ("All Files", "*.*"))
 		path = filedialog.asksaveasfile(initialdir=os.getcwd(), title=title, filetypes=filetypes)
 		if path:
-			self.tempImage.save(path)
+			self.tempImage.save(path.name)
 
 	def notebookResize(self, event=None):
 		self.notebook.update_idletasks()
@@ -540,6 +557,9 @@ class Gui:
 		self.stopFlag = True
 		time.sleep(1)
 		self.stopFlag = False
+
+	def getTabName(self):
+		return self.notebook.tab(self.notebook.nametowidget(self.notebook.select()))["text"]
 
 	def loading(self, bar):
 		while self.running:
