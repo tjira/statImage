@@ -1,9 +1,11 @@
 /chain/
 __pycache__/
+intervals/
 *_threshold.png
 *_binary.png
 *_binaryEdited.png
 stats.json
 estimation.json
+confidence.json
 settings.json
 statImage

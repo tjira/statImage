@@ -1,4 +1,5 @@
 import os
+import cv2
 import time
 import json
 import numpy
@@ -10,8 +11,10 @@ from tkinter.ttk import *
 from threading import Thread
 from shutil import rmtree
 from tkinter import filedialog
+from tkinter import messagebox
 from MH import MH
 from Image import Image
+from Intervals import Intervals
 from MLE import MLE
 
 
@@ -48,12 +51,14 @@ class Gui:
 		self.convertTabLayout()
 		self.simulateTabLayout()
 		self.estimateTabLayout()
+		self.intervalsTabLayout()
 		self.notebook.pack()
 		self.master.config(menu=self.menubar)
 		
 	def menuLayout(self):
 		self.fileMenu = Menu(self.menubar, tearoff=0)
-		self.fileMenu.add_command(label="Open", command=self.open)
+		self.fileMenu.add_command(label="Open", command=lambda: self.openFile(self.notebook.tab(self.notebook.select(), "text")))
+		self.fileMenu.add_command(label="Open Folder", command=lambda: self.openFolder(self.notebook.tab(self.notebook.select(), "text")))
 		self.fileMenu.add_command(label="Save As", command=self.saveAs)
 		self.fileMenu.add_command(label="Preferences", command=self.preferences)
 		self.fileMenu.add_command(label="Quit", command=self.master.quit)
@@ -64,7 +69,8 @@ class Gui:
 		self.convertTabOptions = Frame(self.convertTab)
 		self.convertTabOptions.pack(side=RIGHT, fill=Y)
 		self.notebook.add(self.convertTab, text="Convert")
-		Entry(self.convertTab, textvariable=self.convertInput).pack(fill=X)
+		self.convertInputEntry = Entry(self.convertTab, textvariable=self.convertInput)
+		self.convertInputEntry.pack(fill=X)
 		self.convertILabel = Label(self.convertTab, width=50)
 		self.convertILabel.pack()
 		self.convertImageChooser = Combobox(self.convertTabOptions, textvariable=self.convertDisplayed, state="readonly")
@@ -96,8 +102,6 @@ class Gui:
 		self.convertCharWin.column("#0", width=50)
 		self.convertCharWin.column("Value", width=50)
 		self.convertCharWin.pack(fill=X)
-		self.convertProgress = Progressbar(self.convertTabOptions, orient=HORIZONTAL, length=100, mode="indeterminate")
-		self.convertProgress.pack(fill=X, side=BOTTOM)
 
 	def simulateTabLayout(self):
 		self.simulateTab = Frame(self.notebook)
@@ -144,8 +148,11 @@ class Gui:
 		self.notebook.add(self.estimateTab, text="Estimate")
 		self.estimateTabOptions = Frame(self.estimateTab)
 		self.estimateTabOptions.pack(side=RIGHT, fill=Y)
-		Entry(self.estimateTab, textvariable=self.estimateImageInput, width=50).pack(fill=X)
-		Entry(self.estimateTab, textvariable=self.estimateFolderInput).pack(fill=X)
+		self.estimateImageInputEntry = Entry(self.estimateTab, textvariable=self.estimateImageInput, width=50)
+		self.estimateImageInputEntry.pack(fill=X)
+		self.estimateFolderInputEntry = Entry(self.estimateTab, textvariable=self.estimateFolderInput)
+		self.estimateFolderInputEntry.pack(fill=X)
+		Tooltip.register(self.estimateFolderInputEntry, "Folder with generated chain")
 		self.estimateILabel = Label(self.estimateTab)
 		self.estimateILabel.pack(fill=X)
 		Button(self.estimateTabOptions, text="Load", command=lambda: Thread(target=self.estimateLoad).start(), width=20).pack(fill=X)
@@ -160,6 +167,40 @@ class Gui:
 		Button(self.estimateTabOptions, text="Stop", command=lambda: Thread(target=self.stop).start()).pack(fill=X)
 		self.estimateProgress = Progressbar(self.estimateTabOptions, orient=HORIZONTAL, length=100, mode="indeterminate")
 		self.estimateProgress.pack(fill=X, side=BOTTOM)
+
+	def intervalsTabLayout(self):
+		self.intervalsTab = Frame(self.notebook)
+		self.intervalsTabOptions = Frame(self.intervalsTab)
+		self.intervalsTabOptions.pack(side=RIGHT, fill=Y)
+		self.notebook.add(self.intervalsTab, text="Intervals")
+		self.intervalsImageInput = Entry(self.intervalsTab, textvariable=self.intervalsImage, width=70)
+		self.intervalsImageInput.pack(fill=X)
+		self.intervalsFolderInput = Entry(self.intervalsTab, textvariable=self.intervalsChain)
+		self.intervalsFolderInput.pack(fill=X)
+		Tooltip.register(self.intervalsFolderInput, "Folder with generated images from estimated distribution")
+		self.intervalsFrame = Frame(self.intervalsTab)
+		self.intervalsFrame.pack(fill=X)
+		Message(self.intervalsFrame, textvariable=self.aInt, justify=CENTER, relief=RAISED, width=150).pack(side=LEFT, padx=20)
+		Message(self.intervalsFrame, textvariable=self.chiInt, justify=CENTER, relief=RAISED, width=150).pack(side=RIGHT, padx=20)
+		Message(self.intervalsFrame, textvariable=self.lInt, justify=CENTER, relief=RAISED, width=150).pack()
+		self.intervalsILabel = Label(self.intervalsTab)
+		self.intervalsILabel.pack(fill=X)
+		self.intervalsCharWin = Treeview(self.intervalsTabOptions, columns=("Value"), height=4)
+		self.intervalsCharWin.heading("#0", text="Char")
+		self.intervalsCharWin.heading("Value", text="Value")
+		self.intervalsCharWin.column("#0", width=50)
+		self.intervalsCharWin.column("Value", width=50)
+		self.intervalsCharWin.pack(fill=X)
+		self.intervalsParamWin = Treeview(self.intervalsTabOptions, columns=("Value"), height=4)
+		self.intervalsParamWin.heading("#0", text="Param")
+		self.intervalsParamWin.heading("Value", text="Value")
+		self.intervalsParamWin.column("#0", width=50)
+		self.intervalsParamWin.column("Value", width=50)
+		self.intervalsParamWin.pack(fill=X)
+		Button(self.intervalsTabOptions, text="Load", command=lambda: Thread(target=self.intervalsLoad).start()).pack(fill=X)
+		Entry(self.intervalsTabOptions, textvariable=self.intervalsInterval).pack(fill=X)
+		Entry(self.intervalsTabOptions, textvariable=self.intervalsChainCount).pack(fill=X)
+		Button(self.intervalsTabOptions, text="Summarize", command=lambda: Thread(target=self.summarize).start()).pack(fill=X)
 
 	def preferences(self):
 		prefs = Toplevel()
@@ -212,19 +253,23 @@ class Gui:
 		self.loadingBarIncrement = IntVar(value=5)
 		self.estimateAutoStop = BooleanVar(value=1)
 		self.convertDisplayed = StringVar()
+		self.intervalsImage = StringVar(value=self.convertInput.get())
+		self.intervalsChain = StringVar(value=self.chainFolder.get())
+		self.intervalsInterval = IntVar(value=90)
+		self.intervalsChainCount = IntVar(value=19)
+		self.aInt = StringVar(value="A")
+		self.lInt = StringVar(value="L")
+		self.chiInt = StringVar(value="Chi")
 		self.convertDisplayed.trace("w", self.convertChangeDisplayed)
 		self.notebook.bind("<<NotebookTabChanged>>", self.notebookResize)
 		self.loadSettings(1)
 		self.loadSettings(2)
 
 	def convert(self):
-		self.running = True
-		Thread(target=self.loading, args=(self.convertProgress, )).start()
 		image = Image(filename=self.convertInput.get())
 		chars = image.computeChars(threshold=self.convertThresh.get(), connectivity=self.convertConnectivity.get(), kernel=eval(self.convertMorphKernel.get()), seq=eval(self.convertMorphSeq.get()), minCompSize=self.convertMinCompSize.get(), maxHoleSize=self.convertMaxHoleSize.get(), minHoleSize=self.convertMinHoleSize.get())
 		self.updateConvertCombobox("_binaryEdited")
 		self.displayChars(chars, self.convertCharWin)
-		self.running = False
 
 	def simulate(self, mass=[False, 0], ):
 		params = (self.lambda1.get(), self.lambda2.get(), self.lambda3.get())
@@ -278,15 +323,36 @@ class Gui:
 					break
 			if time.time() - start > 1/self.updateFreq.get():
 				self.displayParams(alg.theta, self.estimateCharWin)
+				start = time.time()
 			prev = numpy.copy(alg.theta)
 		alg.saveThetas()
 		self.running = False
 
+	def summarize(self):
+		if self.intervalsLoad():
+			obj = Intervals(self.intervalsImage.get(), self.intervalsChain.get(), self.intervalsInterval.get(), self.intervalsChainCount.get())
+			ints = obj.count()
+			self.aInt.set("A\n" + str(ints["A"]))
+			self.lInt.set("L\n" + str(ints["L"]))
+			self.chiInt.set("Chi\n" + str(ints["Chi"]))
+			with open(os.path.join(getFolder(self.intervalsImage.get()), "confidence.json"), "w") as conf:
+				jsonDict = json.dumps(ints, sort_keys=True, indent=4)
+				conf.write(jsonDict)
+			i = 0
+			for name, interval in ints.items():
+				obj.draw(interval, obj.jsonChars[i], name)
+				i +=1
+			intFolder = os.path.join(getFolder(self.intervalsImage.get()), "intervals")
+			aImage = cv2.cvtColor(cv2.imread(os.path.join(intFolder, "A.png"), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGRA2RGBA)
+			lImage = cv2.cvtColor(cv2.imread(os.path.join(intFolder, "L.png"), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGRA2RGBA)
+			chiImage = cv2.cvtColor(cv2.imread(os.path.join(intFolder, "Chi.png"), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGRA2RGBA)
+			img = numpy.concatenate((aImage, lImage, chiImage), axis=0)
+
+			self.display(self.intervalsILabel, matrix=img)
+
 	def display(self, label, **kwargs):
 		height = 500
 		width = 1000
-		self.running = True
-		Thread(target=self.loading, args=(self.convertProgress, )).start()
 		filename = kwargs.pop("filename", None)
 		tabName = self.notebook.tab(self.notebook.nametowidget(self.notebook.select()))["text"]
 		if filename:
@@ -300,9 +366,7 @@ class Gui:
 		image = PIL.ImageTk.PhotoImage(image)
 		label.configure(image=image)
 		label.image = image
-		self.running = False
 		self.notebookResize()
-
 
 	def displayChars(self, chars, tree):
 		for i in tree.get_children():
@@ -321,7 +385,7 @@ class Gui:
 
 	def saveSettings(self, mode):
 		if mode == 1:
-			path = os.sep.join(self.convertInput.get().split(os.sep)[:-1] + ["settings.json"])
+			path = os.path.join(getFolder(self.convertInput.get()), "settings.json")
 			convertJsonDict = json.dumps({
 				"Threshold": self.convertThresh.get(),
 				"MorphKernel": str(self.convertMorphKernel.get()),
@@ -346,7 +410,7 @@ class Gui:
 
 	def loadSettings(self, mode):
 		if mode == 1:
-			convertSettingsPath = os.sep.join(self.convertInput.get().split(os.sep)[:-1] + ["settings.json"])
+			convertSettingsPath = os.path.join(getFolder(self.convertInput.get()), "settings.json")
 			if os.path.exists(convertSettingsPath):
 				with open(convertSettingsPath, "r") as settings:
 					jsonDict = json.loads(settings.read())
@@ -381,21 +445,72 @@ class Gui:
 		self.display(self.estimateILabel, filename=self.estimateImageInput.get())
 		self.running = False
 
-	def open(self):
+	def intervalsLoad(self):
+		ok = self.intervalsCheck()
+		if ok:
+			imageFolder = getFolder(self.intervalsImage.get())
+			with open(os.path.join(imageFolder, "stats.json"), "r") as chars:
+				jsonChars = json.loads(chars.read())
+			with open(os.path.join(imageFolder, "estimation.json"), "r") as params:
+				jsonParams = json.loads(params.read())
+			paramsIndex = max([int(i) for i in jsonParams.keys()])
+			chars = jsonChars["Characteristics"]
+			self.displayParams(jsonParams[str(paramsIndex)], self.intervalsParamWin)
+			self.displayChars(chars, self.intervalsCharWin)
+		return ok
+			
+
+	def intervalsCheck(self):
+		imageFolder = getFolder(self.intervalsImage.get())
+		statsExists = os.path.exists(os.path.join(imageFolder, "stats.json"))
+		estimationExists = os.path.exists(os.path.join(imageFolder, "estimation.json"))
+		chainExists = os.path.exists(self.intervalsChain.get())
+		if not statsExists:
+			messagebox.showerror(title="Error", message="Converted data not found.")
+			return False
+		if not estimationExists:
+			messagebox.showerror(title="Error", message="Estimation data not found.")
+			return False
+		if not chainExists:
+			messagebox.showerror(title="Error", message="Chain folder not found.")
+			return False
+		items = list(os.walk(self.intervalsChain.get()))[0]
+		images = [file for folder in items for file in folder if ".png" in file]
+		if len(images) < self.intervalsChainCount.get():
+			messagebox.showerror(title="Error", message="Not enough chain images.")
+			return False
+		return True
+
+	def openFile(self, tab):
 		title = "Choose an image"
 		filetypes = (("Image", ".jpg .jpeg .png .bmp"), ("All Files","*.*"))
 		path = filedialog.askopenfilename(initialdir=os.getcwd(), filetypes=filetypes, title=title)
 		if path:
-			self.convertInput.set(path)
-			self.display(self.convertILabel, filename=path)
+			if tab == "Convert":
+				self.convertInput.set(path)
+				self.display(self.convertILabel, filename=path)
+			if tab == "Estimate":
+				self.estimateImageInput.set(path)
+				self.display(self.estimateILabel, filename=path)
+			if tab == "Intervals":
+				self.intervalsImage.set(path)
+				self.intervalsLoad()
+
+	def openFolder(self, tab):
+		title = "Choose a folder"
+		path = filedialog.askdirectory(initialdir=os.getcwd())
+		if path:
+			if tab == "Estimate":
+				self.estimateFolderInput.set(path)
+			if tab == "Intervals":
+				self.intervalsChain.set(path)
 
 	def saveAs(self):
 		title = "Choose a location"
 		filetypes = (("Image", ".png"), ("All Files", "*.*"))
-		path = filedialog.asksaveasfilename(initialdir=os.getcwd(), title=title, filetypes=filetypes)
+		path = filedialog.askdirectory(initialdir=os.getcwd(), title=title, filetypes=filetypes)
 		if path:
 			self.tempImage.save(path)
-		print(path)
 
 	def notebookResize(self, event=None):
 		self.notebook.update_idletasks()
@@ -403,17 +518,15 @@ class Gui:
 		self.notebook.configure(height=tab.winfo_reqheight(), width=tab.winfo_reqwidth())
 
 	def updateConvertCombobox(self, appendix):
-		imageName = self.convertInput.get().split(os.sep)[-1]
-		items = list(os.walk(os.sep.join(self.convertInput.get().split(os.sep)[:-1])))[0]
+		items = list(os.walk(getFolder(self.convertInput.get())))[0]
 		images = [file for folder in items for file in folder if ".png" in file or ".jpg" in file or ".jpeg" in file or ".bmp" in file or ".tiff" in file]
 		self.convertImageChooser["values"] = images
 		index = [images.index(item) for item in images if appendix in item][0]
 		self.convertDisplayed.set(images[index])
 
 	def convertChangeDisplayed(self, *args):
-		imageName = self.convertDisplayed.get()
-		path = self.convertInput.get().split(os.sep)[:-1] + [imageName]
-		self.display(self.convertILabel, filename=os.sep.join(path))
+		path = os.path.join(getFolder(self.convertInput.get()), self.convertDisplayed.get())
+		self.display(self.convertILabel, filename=path)
 
 	def copyParameters(self):
 		params = list()
@@ -433,3 +546,6 @@ class Gui:
 			bar["value"] += self.loadingBarIncrement.get()
 			time.sleep(.05)
 		bar["value"] = 0
+
+def getFolder(file):
+	return os.sep.join(file.split(os.sep)[:-1])

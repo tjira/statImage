@@ -17,4 +17,4 @@ build:
 	cp classes/*.py ./
 	pyinstaller --onefile gui.spec
 	mv dist/statImage ./
-	rm --force Gui.py Image.py MH.py MLE.py Tooltip.py
+	rm --force Gui.py Image.py MH.py MLE.py Tooltip.py Intervals.py
