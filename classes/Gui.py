@@ -269,6 +269,9 @@ class Gui:
 		self.notebook.bind("<<NotebookTabChanged>>", self.notebookResize)
 		self.master.bind("<Control-s>", lambda e: self.saveAs())
 		self.master.bind("<Control-o>", lambda e: self.openFile())
+		self.master.bind("<Control-Left>", self.bindChangeTab)
+		self.master.bind("<Control-Right>", self.bindChangeTab)
+		self.master.bind("<Return>", lambda e: Thread(target=self.bindEnter).start())
 
 	def convert(self):
 		self.convertLoad()
@@ -552,6 +555,31 @@ class Gui:
 		self.lambda1.set(params[0])
 		self.lambda2.set(params[1])
 		self.lambda3.set(params[2])
+
+	def bindEnter(self):
+		tab = self.getTabName()
+		if tab == "Convert":
+			self.convert()
+		elif tab == "Simulate":
+			self.simulate()
+		elif tab == "Estimate":
+			self.estimate()
+		elif tab == "Intervals":
+			self.summarize()
+
+	def bindChangeTab(self, event):
+		tabs = [self.notebook.tab(tab, option="text") for tab in self.notebook.tabs()]
+		key = event.keysym
+		currentIndex = tabs.index(self.getTabName())
+		if key == "Right":
+			index = (currentIndex + 1)%len(tabs)
+		else:
+			if currentIndex == 0:
+				index = len(tabs) - 1
+			else:
+				index = currentIndex - 1
+		self.notebook.select(index)
+		self.notebookResize()
 
 	def stop(self):
 		self.stopFlag = True
