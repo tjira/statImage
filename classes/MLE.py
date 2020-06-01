@@ -19,15 +19,14 @@ class MLE:
 		num_u = numpy.array([0, 0, 0])
 		den_u = 0
 		for i in range(len(self.guz)):
-			num_u = num_u + self.guz[i]  *  numpy.exp(  sum(self.guz[i]*self.theta - self.guz[i]*self.theta0 )  )
-			den_u = den_u + numpy.exp(  sum(self.guz[i]*self.theta - self.guz[i]*self.theta0)  )
+			num_u = num_u + self.guz[i]*numpy.exp(sum(self.guz[i]*self.theta - self.guz[i]*self.theta0))
+			den_u = den_u + numpy.exp(sum(self.guz[i]*self.theta - self.guz[i]*self.theta0))
 		u = self.gux - num_u/den_u
-
 		num_j = 0
 		den_j = 0
 		for i in range(len(self.guz)):
-			num_j = num_j + sum(  (self.guz[i] - num_u/den_u)**2  )  *  numpy.exp(  sum(self.guz[i]*self.theta - self.guz[i]*self.theta0)  )
-			den_j = den_j + numpy.exp(  sum(self.guz[i]*self.theta - self.guz[i]*self.theta0)  )
+			num_j = num_j + sum((self.guz[i] - num_u/den_u)**2)*numpy.exp(sum(self.guz[i]*self.theta - self.guz[i]*self.theta0))
+			den_j = den_j + numpy.exp(sum(self.guz[i]*self.theta - self.guz[i]*self.theta0))
 		j = num_j/den_j
 		self.theta = self.theta + u/j
 		self.allThetas[list(self.allThetas.keys())[-1]+1] = list(self.theta)

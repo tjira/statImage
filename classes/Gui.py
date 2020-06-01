@@ -172,7 +172,6 @@ class Gui:
 		self.estimateIntWin.column("#0", width=50)
 		self.estimateIntWin.pack(fill=X)
 		Button(self.estimateTabOptions, text="Estimate Parameters", command=lambda: Thread(target=self.estimate).start()).pack(fill=X)
-		Button(self.estimateTabOptions, text="Estimate Intensity", command=lambda: Thread(target=self.estimateIntensity).start()).pack(fill=X)
 		Button(self.estimateTabOptions, text="Copy Parameters", command=lambda: Thread(target=self.copyParameters).start()).pack(fill=X)
 		Button(self.estimateTabOptions, text="Stop", command=lambda: Thread(target=self.stop).start()).pack(fill=X)
 		self.estimateProgress = Progressbar(self.estimateTabOptions, orient=HORIZONTAL, length=100, mode="indeterminate")
@@ -291,24 +290,27 @@ class Gui:
 		self.displayChars(chars, self.convertCharWin)
 
 	def simulate(self, mass=[False, 0], ):
-		params = (self.lambda1.get(), self.lambda2.get(), self.lambda3.get())
-		model = MH(size=self.simulateSize.get(), r=eval(self.rRange.get()), params=params, intensity=self.intensity.get(), connectivity=self.convertConnectivity.get())
-		factor = 1 if not mass[0] else self.massSimulCount.get()
-		start = time.time()
-		for i in range(self.simulateIters.get()):
-			if self.stopFlag:
-				break
-			self.simulImage, chars = model.iteration()
-			if time.time() - start > 1/self.updateFreq.get():
-				self.display(self.simulateILabel, matrix=self.simulImage)
-				self.displayChars(chars, self.simulateCharWin)
-				self.simulateProgress["value"] = (mass[1]*self.simulateIters.get() + i)/self.simulateIters.get()*100/factor
-				start = time.time()
-		self.displayChars(chars, self.simulateCharWin)
-		self.display(self.simulateILabel, matrix=self.simulImage)
-		if not mass[0]:
-			self.simulateProgress["value"] = 100
-		return chars
+		if not self.running:
+			self.running = True
+			params = (self.lambda1.get(), self.lambda2.get(), self.lambda3.get())
+			model = MH(size=self.simulateSize.get(), r=eval(self.rRange.get()), params=params, intensity=self.intensity.get(), connectivity=self.convertConnectivity.get())
+			factor = 1 if not mass[0] else self.massSimulCount.get()
+			start = time.time()
+			for i in range(self.simulateIters.get()):
+				if self.stopFlag:
+					break
+				self.simulImage, chars = model.iteration()
+				if time.time() - start > 1/self.updateFreq.get():
+					self.display(self.simulateILabel, matrix=self.simulImage)
+					self.displayChars(chars, self.simulateCharWin)
+					self.simulateProgress["value"] = (mass[1]*self.simulateIters.get() + i)/self.simulateIters.get()*100/factor
+					start = time.time()
+			self.displayChars(chars, self.simulateCharWin)
+			self.display(self.simulateILabel, matrix=self.simulImage)
+			if not mass[0]:
+				self.simulateProgress["value"] = 100
+			self.running = False
+			return chars
 
 	def massSimulate(self):
 		if os.path.exists(self.chainFolder.get()): rmtree(self.chainFolder.get())
@@ -327,58 +329,59 @@ class Gui:
 			characteristics.write(json.dumps(charDict, sort_keys=True, indent=4))
 
 	def estimate(self):
-		self.estimateLoad()
-		self.running = True
-		Thread(target=self.loading, args=(self.estimateProgress, )).start()
-		image = self.estimateImageInput.get()
-		folder = self.estimateFolderInput.get()
-		start = time.time()
-		alg = MLE(image, folder=folder, connectivity=self.convertConnectivity)
-		prev = numpy.copy(alg.theta)
-		while not self.stopFlag:
-			alg.iteration()
-			if self.estimateAutoStop.get():
-				if numpy.sum(numpy.abs(prev-alg.theta)) < 0.0001 or numpy.isnan(numpy.sum(alg.theta)):
-					break
-			if time.time() - start > 1/self.updateFreq.get():
-				self.displayParams(alg.theta, self.estimateCharWin)
-				start = time.time()
+		if not self.running:
+			self.estimateLoad()
+			self.running = True
+			Thread(target=self.loading, args=(self.estimateProgress, )).start()
+			image = self.estimateImageInput.get()
+			folder = self.estimateFolderInput.get()
+			start = time.time()
+			alg = MLE(image, folder=folder, connectivity=self.convertConnectivity)
 			prev = numpy.copy(alg.theta)
-		alg.saveThetas()
-		self.running = False
+			while not self.stopFlag:
+				alg.iteration()
+				if self.estimateAutoStop.get():
+					if numpy.sum(numpy.abs(prev-alg.theta)) < 0.0001 or numpy.isnan(numpy.sum(alg.theta)):
+						break
+				if time.time() - start > 1/self.updateFreq.get():
+					self.displayParams(alg.theta, self.estimateCharWin)
+					start = time.time()
+				prev = numpy.copy(alg.theta)
+			alg.saveThetas()
+			self.estimateIntensity()
+			self.running = False
+			
 
 	def estimateIntensity(self):
-		self.running = True
-		Thread(target=self.loading, args=(self.estimateProgress, )).start()
 		obj = Intensity(self.estimateImageInput.get(), self.intensityGridSize.get())
 		intensity = obj.estimate()
 		for i in self.estimateIntWin.get_children():
 			self.estimateIntWin.delete(i)
 		self.estimateIntWin.insert("", 0, text=str(intensity))
-		filename = self.estimateImageInput.get().split(".")[0] + "_intensityGrid.png"
-		self.display(self.estimateILabel, filename=filename)
-		self.running = False
 
 	def summarize(self):
-		if self.intervalsLoad():
-			obj = Intervals(self.intervalsImage.get(), self.intervalsChain.get(), self.intervalsInterval.get(), self.intervalsChainCount.get())
-			ints = obj.count()
-			self.aInt.set("A\n" + str(ints["A"]))
-			self.lInt.set("L\n" + str(ints["L"]))
-			self.chiInt.set("Chi\n" + str(ints["Chi"]))
-			with open(os.path.join(getFolder(self.intervalsImage.get()), "confidence.json"), "w") as conf:
-				jsonDict = json.dumps(ints, sort_keys=True, indent=4)
-				conf.write(jsonDict)
-			i = 0
-			for name, interval in ints.items():
-				obj.draw(interval, obj.jsonChars[i], name)
-				i +=1
-			intFolder = os.path.join(getFolder(self.intervalsImage.get()), "intervals")
-			aImage = cv2.cvtColor(cv2.imread(os.path.join(intFolder, "A.png"), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGRA2RGBA)
-			lImage = cv2.cvtColor(cv2.imread(os.path.join(intFolder, "L.png"), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGRA2RGBA)
-			chiImage = cv2.cvtColor(cv2.imread(os.path.join(intFolder, "Chi.png"), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGRA2RGBA)
-			img = numpy.concatenate((aImage, lImage, chiImage), axis=0)
-			self.display(self.intervalsILabel, matrix=img)
+		if not self.running:
+			if self.intervalsLoad():
+				self.running = True
+				obj = Intervals(self.intervalsImage.get(), self.intervalsChain.get(), self.intervalsInterval.get(), self.intervalsChainCount.get())
+				ints = obj.count()
+				self.aInt.set("A\n" + str(ints["A"]))
+				self.lInt.set("L\n" + str(ints["L"]))
+				self.chiInt.set("Chi\n" + str(ints["Chi"]))
+				with open(os.path.join(getFolder(self.intervalsImage.get()), "confidence.json"), "w") as conf:
+					jsonDict = json.dumps(ints, sort_keys=True, indent=4)
+					conf.write(jsonDict)
+				i = 0
+				for name, interval in ints.items():
+					obj.draw(interval, obj.jsonChars[i], name)
+					i +=1
+				intFolder = os.path.join(getFolder(self.intervalsImage.get()), "intervals")
+				aImage = cv2.cvtColor(cv2.imread(os.path.join(intFolder, "A.png"), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGRA2RGBA)
+				lImage = cv2.cvtColor(cv2.imread(os.path.join(intFolder, "L.png"), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGRA2RGBA)
+				chiImage = cv2.cvtColor(cv2.imread(os.path.join(intFolder, "Chi.png"), cv2.IMREAD_UNCHANGED), cv2.COLOR_BGRA2RGBA)
+				img = numpy.concatenate((aImage, lImage, chiImage), axis=0)
+				self.display(self.intervalsILabel, matrix=img)
+				self.running = False
 
 	def display(self, label, **kwargs):
 		height = 500
@@ -490,7 +493,6 @@ class Gui:
 			self.displayChars(chars, self.intervalsCharWin)
 			self.intervalsParamWin.insert("", 0, text="Intensity", values=(round(intensity, 2)))
 		return ok
-			
 
 	def intervalsCheck(self):
 		imageFolder = getFolder(self.intervalsImage.get())

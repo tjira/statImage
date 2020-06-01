@@ -2,6 +2,7 @@ import json
 import os
 import numpy
 import statsmodels.stats.api as sms
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 
@@ -12,7 +13,8 @@ class Intervals:
 		self.chainFolder = chain
 		self.perc = perc
 		self.n = n
-		self.jsonChars,self.jsonChain = self.getData()
+		self.jsonChars, self.jsonChain = self.getData()
+		matplotlib.use("agg")
 
 	def count(self):
 		a = list()
