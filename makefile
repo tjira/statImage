@@ -1,4 +1,6 @@
-all: build clean-folders clean-files
+all: build clean
+
+clean: clean-files clean-folders
 
 clean-folders:
 	find . -name "__pycache__" -exec rm --recursive --force {} +
